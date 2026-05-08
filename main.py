@@ -6,7 +6,7 @@ from telebot import types
 
 # আপনার টোকেন এবং অ্যাডমিন আইডি
 API_TOKEN = '8792313235:AAGLv8pmNBm8G2emNK4TW67am45VvFNF5nU'
-ADMIN_ID = 6365535354 
+ADMIN_ID = 7911996579 
 
 bot = telebot.TeleBot(API_TOKEN)
 
