@@ -6,7 +6,7 @@ import pytz
 import os
 
 # --- কনফিগারেশন ---
-API_TOKEN = '8792313235:AAGLv8pmNBm8G2emNK4TW67am45VvFNF5nU'
+API_TOKEN = '8792313235:AAG29kHCokBMvH5GSPcKsO1tZcWo9dzdjBs'
 ADMIN_ID = 7911996579 
 REGISTRATION_LINK = "https://18bdwin24.com/register?inviteCode=VFNRBPN&from=web"
 
