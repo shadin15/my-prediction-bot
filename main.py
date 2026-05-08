@@ -1,140 +1,102 @@
 import telebot
-from telebot import types
 import random
-from datetime import datetime
-import pytz
+import time
+import datetime
 
-API_TOKEN = '8792313235:AAGLv8pmNBm8G2emNK4TW67am45VvFNF5nU'
-ADMIN_ID = 7911996579 
-
+# আপনার Bot Token এখানে দিন
+API_TOKEN = 'YOUR_BOT_TOKEN'
 bot = telebot.TeleBot(API_TOKEN)
-verified_users = {}
 
-REGISTRATION_LINK = "https://18bdwin24.com/register?inviteCode=VFNRBPN&from=web"
+# ১২ ঘণ্টার ফরম্যাটে গোল্ডেন সেশন টাইম
+SIGNAL_TIMES = ["11:30 AM", "02:30 PM", "05:30 PM", "09:30 PM", "11:30 PM"]
+SESSION_DURATION = 30 # ৩০ মিনিট সেশন স্থায়িত্ব (আপনি চাইলে ৬০ করতে পারেন)
 
-# সেশন ডাটা (বাংলাদেশ সময় অনুযায়ী)
-SESSIONS = [
-    {"display": "10:30 AM - 11:30 AM", "start": "10:30", "end": "11:30", "icon": "☀️"},
-    {"display": "02:00 PM - 03:00 PM", "start": "14:00", "end": "15:00", "icon": "🍱"},
-    {"display": "05:30 PM - 06:30 PM", "start": "17:30", "end": "18:30", "icon": "🌇"},
-    {"display": "09:00 PM - 10:00 PM", "start": "21:00", "end": "22:00", "icon": "🔥"},
-    {"display": "11:30 PM - 12:30 AM", "start": "23:30", "end": "00:30", "icon": "🌙"}
-]
-
-def get_live_status():
-    tz = pytz.timezone('Asia/Dhaka')
-    now = datetime.now(tz).strftime("%H:%M")
-    status_text = "📊 **আজকের সেশন স্ট্যাটাস:**\n\n"
-    
-    for s in SESSIONS:
-        start_time = s['start']
-        end_time = s['end']
-        
-        # সেশন শেষ হয়েছে কিনা চেক (মাঝরাতের সেশন হ্যান্ডেলিং সহ)
-        is_ended = False
-        if start_time == "23:30": # লাস্ট সেশন
-            if "00:30" < now < "10:30": is_ended = True
-        else:
-            if now > end_time: is_ended = True
-            
-        # সেশন বর্তমানে চলছে কিনা
-        is_active = False
-        if start_time == "23:30":
-            if now >= "23:30" or now <= "00:30": is_active = True
-        else:
-            if start_time <= now <= end_time: is_active = True
-
-        # সিম্বল সেট করা
-        if is_ended:
-            symbol = "✅" # সেশন শেষ
-            label = "(Finished)"
-        elif is_active:
-            symbol = "🟢" # সেশন চলছে
-            label = "(Active Now)"
-        else:
-            symbol = "⏰" # সেশন সামনে আসবে
-            label = "(Upcoming)"
-            
-        status_text += f"{symbol} {s['icon']} **{s['display']}** {label}\n"
-    
-    return status_text
-
-def is_session_active():
-    tz = pytz.timezone('Asia/Dhaka')
-    now = datetime.now(tz).strftime("%H:%M")
-    for s in SESSIONS:
-        if s['start'] == "23:30":
-            if now >= "23:30" or now <= "00:30": return True
-        elif s['start'] <= now <= s['end']:
-            return True
-    return False
+user_status = {} 
+loss_count = {}  
 
 @bot.message_handler(commands=['start'])
-def start(message):
-    text = (
-        "⚡️ **BDWIN24 OFFICIAL AI PREDICTOR** ⚡️\n\n"
-        "মার্কেটের সবথেকে নিখুঁত AI সিগন্যাল পেতে আমাদের সাথেই থাকুন।\n\n"
-        f"🔗 [OFFICIAL REGISTER LINK]({REGISTRATION_LINK})\n\n"
-        "✅ **ভেরিফিকেশন:** একাউন্ট খুলে আপনার UID প্রোফাইল ও ডিপোজিটের স্ক্রিনশট এখানে পাঠান।"
+def send_welcome(message):
+    welcome_text = (
+        "👋 **Welcome to BDWIN24 Official AI Bot!** 🤖\n\n"
+        "আমাদের AI সিস্টেম গাণিতিক ফর্মুলা ব্যবহার করে নির্ভুল সিগন্যাল প্রদান করে। ✨\n\n"
+        "📊 **আজকের সেশন শিডিউল:**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "🕒 সেশন ১: ১১:৩০ AM - ১২:০০ PM\n"
+        "🕒 সেশন ২: ০২:৩০ PM - ০৩:০০ PM\n"
+        "🕒 সেশন ৩: ০৫:৩০ PM - ০৬:০০ PM\n"
+        "🕒 সেশন ৪: ০৯:৩০ PM - ১০:০০ PM 🌟\n"
+        "🕒 সেশন ৫: ১১:৩০ PM - ১২:০০ AM 🌙\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "✅ প্রতিটি সেশন ঠিক **৩০ মিনিট** চলবে।\n"
+        "💰 লস এড়াতে ৫-৬ স্টেপ ফান্ড মেইনটেইন করুন। 🛡️"
     )
-    bot.send_message(message.chat.id, text, parse_mode='Markdown', disable_web_page_preview=True)
+    # প্রফেশনাল বাটন
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Get AI Signal 🚀", "Rules 📋")
+    bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown", reply_markup=markup)
 
-@bot.message_handler(content_types=['photo'])
-def handle_photo(message):
-    user_id = message.chat.id
-    username = f"@{message.from_user.username}" if message.from_user.username else "N/A"
+@bot.message_handler(func=lambda message: message.text == "Get AI Signal 🚀")
+def handle_signal(message):
+    uid = message.chat.id
+    now = datetime.datetime.now()
     
-    bot.send_message(ADMIN_ID, f"📩 **New Request!**\nID: `{user_id}`\nUsername: {username}\nApprove: `/approve {user_id}`")
-    bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
-    bot.send_message(message.chat.id, "⏳ আপনার স্ক্রিনশট অ্যাডমিনের কাছে পাঠানো হয়েছে। যাচাই শেষে আপনাকে এপ্রুভ করা হবে।")
+    # ইউজার অলরেডি প্রফিট করেছে কি না চেক
+    if uid in user_status and user_status[uid] == "CLOSED":
+        bot.send_message(uid, "🎊 **অভিনন্দন!** আপনি এই সেশনে প্রফিট করেছেন। লোভ করবেন না, পরবর্তী সেশনের জন্য অপেক্ষা করুন। 🚫")
+        return
 
-@bot.message_handler(commands=['approve'])
-def approve(message):
-    if message.from_user.id == ADMIN_ID:
-        try:
-            uid = int(message.text.split()[1])
-            verified_users[uid] = True
-            bot.send_message(uid, "🎊 **VIP ACCESS ACTIVATED!**\n\nআপনি এখন অফিশিয়াল সিগন্যাল পাওয়ার যোগ্য।\n👉 পিরিয়ডের **শেষ ৩ ডিজিট** লিখে মেসেজ দিন।")
-            bot.send_message(ADMIN_ID, f"✅ User `{uid}` Approved!")
-        except: bot.reply_to(message, "ব্যবহার করুন: `/approve ID`")
-
-@bot.message_handler(func=lambda message: True)
-def give_signal(message):
-    if message.chat.id in verified_users:
-        if not is_session_active():
-            # সেশন বন্ধ থাকলে সুন্দর করে লিস্ট দেখাবে
-            bot.send_message(message.chat.id, f"🚫 **সেশন এখন বন্ধ!**\n\n{get_live_status()}", parse_mode='Markdown')
-            return
+    in_session = False
+    current_session_end = ""
+    
+    for s_time in SIGNAL_TIMES:
+        start_time = datetime.datetime.strptime(s_time, "%I:%M %p").replace(
+            year=now.year, month=now.month, day=now.day
+        )
+        end_time = start_time + datetime.timedelta(minutes=SESSION_DURATION)
         
-        period_input = message.text
-        if period_input.isdigit() and len(period_input) >= 3:
-            # ১০% চান্স স্কিপ করার (মার্কেট রিস্ক দেখানোর জন্য)
-            if random.random() < 0.10:
-                bot.send_message(message.chat.id, f"⚠️ **MARKET RISK!**\nপিরিয়ড {period_input} স্কিপ করুন। মার্কেট এখন রিস্কি।")
-                return
+        if start_time <= now <= end_time:
+            in_session = True
+            current_session_end = end_time.strftime("%I:%M %p")
+            break
+    
+    is_in_loss = uid in user_status and user_status[uid] == "RECOVERY"
 
-            prediction = random.choice(["BIG 🔴", "SMALL 🟢"])
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("WIN ✅", callback_data="win"), types.InlineKeyboardButton("LOSS ❌", callback_data="loss"))
-            
-            signal_text = (
-                f"🔥 **AI SIGNAL** 🔥\n"
-                f"━━━━━━━━━━━━\n"
-                f"📌 PERIOD: {period_input}\n"
-                f"📊 RESULT: {prediction}\n"
-                f"━━━━━━━━━━━━\n"
-                f"⚠️ অবশ্যই ৫-৬ স্টেপ ফান্ড রাখবেন।"
-            )
-            bot.send_message(message.chat.id, signal_text, reply_markup=markup)
+    if in_session or is_in_loss:
+        # প্রফেশনাল এনিমেশন ভাব
+        processing = bot.send_message(uid, "🔍 **AI অ্যালগরিদম মার্কেট বিশ্লেষণ করছে...** 📊")
+        time.sleep(1.8)
+        bot.delete_message(uid, processing.message_id)
+
+        prediction = random.choice(["BIG 🔴", "SMALL 🟢"])
+        period_id = now.strftime("%Y%m%d") + str(random.randint(100, 999))
+        
+        # গাণিতিক উইন/লস লজিক
+        outcome = random.choice(["WIN", "LOSS"]) 
+
+        if outcome == "LOSS":
+            loss_count[uid] = loss_count.get(uid, 0) + 1
+            user_status[uid] = "RECOVERY"
+            status_note = f"⚠️ **STATUS: LOSS** (স্টেপ: {loss_count[uid]})"
+            msg_footer = "পরবর্তী স্টেপে ডাবল ফান্ড দিন। রিকভারি না হওয়া পর্যন্ত সেশন চালু থাকবে। 🔥"
+        else:
+            loss_count[uid] = 0
+            user_status[uid] = "CLOSED"
+            status_note = "✅ **STATUS: SUPER WIN!!** 🏆"
+            msg_footer = "সেশন সফলভাবে সমাপ্ত। প্রফিট এনজয় করুন! 💸"
+
+        signal_msg = (
+            f"💥 **BDWIN24 WINGO 1 MINUTE** ✅\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🔹 **PERIOD:** `{period_id}`\n"
+            f"🔹 **PREDICTION:** **{prediction}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"⏰ **সেশন ক্লোজ হবে:** {current_session_end if in_session else 'রিকভারি শেষে'}\n\n"
+            f"{status_note}\n"
+            f"💡 {msg_footer}"
+        )
+        bot.send_message(uid, signal_msg, parse_mode="Markdown")
     else:
-        bot.send_message(message.chat.id, "🚫 আগে স্ক্রিনশট পাঠিয়ে ভেরিফাই হয়ে নিন।")
+        bot.send_message(uid, "❌ **সেশন বর্তমানে অফলাইন!** ❌\n\nপরবর্তী সেশনের সময় জানতে /start বাটনে ক্লিক করুন। ⏳")
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_inline(call):
-    if call.data == "win":
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="💰 **SUPER WIN!!** 💰\nউইন রিঅ্যাকশন দিন। 🔥\n\n👉 পরবর্তী পিরিয়ড দিন।")
-    elif call.data == "loss":
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="⚠️ **LOSS!**\nপরবর্তী লেভেলে ৩ গুণ (3X) ফান্ড ব্যবহার করুন।")
-
-bot.infinity_polling()
-        
+bot.polling()
+    
